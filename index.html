@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poster Generator with Square Photo</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #2c3e50;
+            margin: 0;
+            color: white;
+        }
+
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+            color: #333;
+        }
+
+        h1 { margin-bottom: 0.5rem; }
+        p { margin-bottom: 1.5rem; color: #666; }
+
+        /* Button Styling */
+        .upload-btn {
+            background-color: #3498db;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            display: inline-block;
+            transition: 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-btn:hover { background-color: #2980b9; }
+
+        /* Actual file input is hidden but clickable via the label */
+        input[type="file"] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        /* Preview Image */
+        #preview {
+            max-width: 100%;
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            display: none;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        /* Hide the processing canvas */
+        #canvas { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>ID Card / Poster Maker</h1>
+        <p>Upload a photo to place it in the square box.</p>
+
+        <div class="upload-btn">
+            <span>Click to Upload Photo</span>
+            <input type="file" id="uploadInput" accept="image/*">
+        </div>
+
+        <img id="preview" alt="Poster Preview">
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        // --- 1. CONFIGURATION ---
+        
+        // Replace this URL with your actual Poster Template path (e.g., './poster.png')
+        // For this demo, I created a blue poster with a placeholder text.
+        const TEMPLATE_SRC = "./Card-01.jpg";
+
+        const CONFIG = {
+            
+            x:  420 ,     // X Position (from left)
+            y: 1050,      // Y Position (from top)
+            size: 650,   // Width and Height of the square (200x200)
+            
+            // Border settings
+            strokeWidth: 20,
+            strokeColor: '#90e4a3' // White border
+        };
+        // -------------------------
+
+        const uploadInput = document.getElementById('uploadInput');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const previewImg = document.getElementById('preview');
+
+        // Load Poster Template
+        const templateImg = new Image();
+        templateImg.crossOrigin = "Anonymous";
+        templateImg.src = TEMPLATE_SRC;
+
+        uploadInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const userImg = new Image();
+                userImg.onload = () => processImage(userImg);
+                userImg.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        function processImage(userImg) {
+            // 1. Set Canvas size to match Poster Template
+            canvas.width = templateImg.width;
+            canvas.height = templateImg.height;
+
+            // 2. Draw the Poster Template (Background)
+            ctx.drawImage(templateImg, 0, 0);
+
+            // 3. Define the Clipping Region (The Square)
+            // We save the context so we can "undo" the clipping later
+            ctx.save();
+            
+            ctx.beginPath();
+            ctx.rect(CONFIG.x, CONFIG.y, CONFIG.size, CONFIG.size);
+            ctx.clip(); // From now on, drawing only happens inside this square
+
+            // 4. Draw User Image (Scaled to "Cover" the square)
+            // This math centers and crops the user image to fill the square perfectly
+            const ratio = Math.max(CONFIG.size / userImg.width, CONFIG.size / userImg.height);
+            const newWidth = userImg.width * ratio;
+            const newHeight = userImg.height * ratio;
+            const offsetX = CONFIG.x + (CONFIG.size - newWidth) / 2;
+            const offsetY = CONFIG.y + (CONFIG.size - newHeight) / 2;
+
+            ctx.drawImage(userImg, offsetX, offsetY, newWidth, newHeight);
+
+            // Restore context (removes the clipping limit)
+            ctx.restore();
+
+            // 5. Draw the Stroke (Border) ON TOP of the image
+            ctx.lineWidth = CONFIG.strokeWidth;
+            ctx.strokeStyle = CONFIG.strokeColor;
+            ctx.strokeRect(CONFIG.x, CONFIG.y, CONFIG.size, CONFIG.size);
+
+            // 6. Output and Download
+            const finalURL = canvas.toDataURL('image/png');
+            previewImg.src = finalURL;
+            previewImg.style.display = 'block';
+            
+            downloadImage(finalURL);
+        }
+
+        function downloadImage(dataUrl) {
+            const link = document.createElement('a');
+            link.download = 'generated-poster.png';
+            link.href = dataUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
